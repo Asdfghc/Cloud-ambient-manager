@@ -117,6 +117,10 @@ h2 {
   box-shadow: 0 20px 70px #080b1333;
 }
 
+.content-card + .content-card {
+  margin-top: 24px;
+}
+
 .card-heading {
   padding: 24px 26px;
   border-bottom: 1px solid #2b3852;
@@ -261,6 +265,12 @@ dialog form {
 .field input:focus {
   border-color: #718cff;
   box-shadow: 0 0 0 3px #718cff26;
+}
+
+.field-help {
+  color: #8491aa;
+  font-size: 0.75rem;
+  font-weight: 400;
 }
 
 .dialog-actions {

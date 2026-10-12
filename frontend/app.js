@@ -8,8 +8,31 @@ const feedback = document.querySelector("#feedback");
 const count = document.querySelector("#ambient-count");
 const dialogTitle = document.querySelector("#dialog-title");
 const saveButton = document.querySelector("#save-button");
+const programForm = document.querySelector("#program-form");
+const programDialog = document.querySelector("#program-dialog");
+const programList = document.querySelector("#program-list");
+const programTableWrapper = document.querySelector("#program-table-wrapper");
+const programLoading = document.querySelector("#program-loading");
+const programEmptyState = document.querySelector("#program-empty-state");
+const programCount = document.querySelector("#program-count");
+const uploadButton = document.querySelector("#upload-button");
 
 let editingId = null;
+
+function errorMessage(error, fallback) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string") return error;
+  if (Array.isArray(error)) {
+    return error
+      .map((item) => (typeof item === "object" ? item.msg : item))
+      .filter(Boolean)
+      .join(" ");
+  }
+  if (error && typeof error === "object") {
+    return error.detail ? errorMessage(error.detail, fallback) : fallback;
+  }
+  return fallback;
+}
 
 function showFeedback(message, type = "error") {
   feedback.textContent = message;
@@ -170,6 +193,114 @@ async function removeAmbient(ambient) {
   }
 }
 
+function normalizeProgram(row) {
+  if (Array.isArray(row)) {
+    const [id, name, path] = row;
+    return { id, name, path };
+  }
+
+  return { id: row.id, name: row.name, path: row.path };
+}
+
+function renderPrograms(rows) {
+  programList.replaceChildren();
+  const programs = rows.map(normalizeProgram);
+  programCount.textContent = `${programs.length} ${programs.length === 1 ? "programa" : "programas"}`;
+  programLoading.hidden = true;
+  programEmptyState.hidden = programs.length !== 0;
+  programTableWrapper.hidden = programs.length === 0;
+
+  for (const program of programs) {
+    const row = document.createElement("tr");
+    const nameCell = valueCell(program.name);
+    nameCell.className = "name-cell";
+    row.append(nameCell, valueCell(program.path));
+
+    const actions = document.createElement("td");
+    actions.className = "actions";
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "action-button action-danger";
+    deleteButton.type = "button";
+    deleteButton.textContent = "Excluir";
+    deleteButton.addEventListener("click", () => removeProgram(program));
+    actions.append(deleteButton);
+    row.append(actions);
+    programList.append(row);
+  }
+}
+
+async function loadPrograms() {
+  programLoading.hidden = false;
+  programTableWrapper.hidden = true;
+  programEmptyState.hidden = true;
+  programCount.textContent = "Carregando...";
+
+  try {
+    const response = await fetch("/programs");
+    if (!response.ok) throw new Error("Não foi possível carregar os programas.");
+    renderPrograms(await response.json());
+  } catch (error) {
+    programLoading.hidden = true;
+    programCount.textContent = "Não foi possível carregar";
+    showFeedback(error.message);
+  }
+}
+
+function openProgramDialog() {
+  programForm.reset();
+  programDialog.showModal();
+  programForm.elements.name.focus();
+}
+
+function closeProgramDialog() {
+  programDialog.close();
+  programForm.reset();
+}
+
+async function uploadProgram(event) {
+  event.preventDefault();
+  uploadButton.disabled = true;
+
+  try {
+    const response = await fetch("/programs", {
+      method: "POST",
+      body: new FormData(programForm),
+    });
+
+    if (!response.ok) {
+      let message = "Não foi possível enviar o programa.";
+      try {
+        const details = await response.json();
+        if (details.detail) message = errorMessage(details.detail, message);
+      } catch {
+        // Use the generic message when the server does not return JSON.
+      }
+      throw new Error(message);
+    }
+
+    closeProgramDialog();
+    await loadPrograms();
+    showFeedback("Programa enviado com sucesso.", "success");
+  } catch (error) {
+    showFeedback(error.message);
+  } finally {
+    uploadButton.disabled = false;
+  }
+}
+
+async function removeProgram(program) {
+  if (!window.confirm(`Excluir o programa "${program.name}"?`)) return;
+
+  try {
+    const response = await fetch(`/programs/${program.id}`, { method: "DELETE" });
+    if (!response.ok) throw new Error("Não foi possível excluir o programa.");
+    await loadPrograms();
+    showFeedback("Programa excluído.", "success");
+  } catch (error) {
+    showFeedback(error.message);
+  }
+}
+
 document.querySelector("#new-ambient-button").addEventListener("click", openNewDialog);
 document.querySelector("#refresh-button").addEventListener("click", loadAmbients);
 document.querySelector("#cancel-button").addEventListener("click", closeDialog);
@@ -178,5 +309,13 @@ form.addEventListener("submit", saveAmbient);
 dialog.addEventListener("click", (event) => {
   if (event.target === dialog) closeDialog();
 });
+document.querySelector("#new-program-button").addEventListener("click", openProgramDialog);
+document.querySelector("#cancel-program-button").addEventListener("click", closeProgramDialog);
+document.querySelector("#close-program-dialog-button").addEventListener("click", closeProgramDialog);
+programForm.addEventListener("submit", uploadProgram);
+programDialog.addEventListener("click", (event) => {
+  if (event.target === programDialog) closeProgramDialog();
+});
 
 loadAmbients();
+loadPrograms();

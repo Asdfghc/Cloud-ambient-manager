@@ -53,6 +53,37 @@
           </table>
         </div>
       </section>
+
+      <section class="content-card">
+        <div class="card-heading">
+          <div>
+            <h2>Programas</h2>
+            <p id="program-count">Carregando...</p>
+          </div>
+          <button class="button button-primary" id="new-program-button" type="button">
+            <span aria-hidden="true">+</span> Enviar programa
+          </button>
+        </div>
+
+        <div id="program-loading" class="state">Carregando programas...</div>
+        <div id="program-empty-state" class="state" hidden>
+          <strong>Nenhum programa cadastrado</strong>
+          <span>Envie um arquivo Python ou shell para começar.</span>
+        </div>
+
+        <div class="table-wrapper" id="program-table-wrapper" hidden>
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Arquivo</th>
+                <th><span class="sr-only">Ações</span></th>
+              </tr>
+            </thead>
+            <tbody id="program-list"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
 
     <dialog id="ambient-dialog">
@@ -95,6 +126,35 @@
         <div class="dialog-actions">
           <button class="button button-ghost" id="cancel-button" type="button">Cancelar</button>
           <button class="button button-primary" id="save-button" type="submit">Salvar ambiente</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="program-dialog">
+      <form id="program-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Novo programa</p>
+            <h2>Enviar programa</h2>
+          </div>
+          <button class="close-button" id="close-program-dialog-button" type="button" aria-label="Fechar">×</button>
+        </div>
+
+        <div class="form-grid program-form-grid">
+          <label class="field field-wide">
+            Nome
+            <input name="name" type="text" maxlength="50" required autocomplete="off" />
+          </label>
+          <label class="field field-wide">
+            Arquivo
+            <input name="file" type="file" accept=".py,.sh" required />
+            <small class="field-help">Formatos aceitos: .py e .sh</small>
+          </label>
+        </div>
+
+        <div class="dialog-actions">
+          <button class="button button-ghost" id="cancel-program-button" type="button">Cancelar</button>
+          <button class="button button-primary" id="upload-button" type="submit">Enviar programa</button>
         </div>
       </form>
     </dialog>
