@@ -1,1 +1,104 @@
-teste
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ambientes | Cloud Ambient Manager</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Cloud Ambient Manager</p>
+          <h1>Ambientes</h1>
+          <p class="subtitle">Gerencie os limites de recursos dos seus ambientes.</p>
+        </div>
+        <button class="button button-primary" id="new-ambient-button" type="button">
+          <span aria-hidden="true">+</span> Novo ambiente
+        </button>
+      </header>
+
+      <div id="feedback" class="feedback" role="alert" hidden></div>
+
+      <section class="content-card">
+        <div class="card-heading">
+          <div>
+            <h2>Ambientes cadastrados</h2>
+            <p id="ambient-count">Carregando...</p>
+          </div>
+          <button class="button button-ghost" id="refresh-button" type="button">Atualizar</button>
+        </div>
+
+        <div id="loading" class="state">Carregando ambientes...</div>
+        <div id="empty-state" class="state" hidden>
+          <strong>Nenhum ambiente cadastrado</strong>
+          <span>Crie o primeiro ambiente para começar.</span>
+        </div>
+
+        <div class="table-wrapper" id="table-wrapper" hidden>
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>CPU weight</th>
+                <th>CPU máx.</th>
+                <th>Memória máx.</th>
+                <th>Swap máx.</th>
+                <th>I/O máx.</th>
+                <th><span class="sr-only">Ações</span></th>
+              </tr>
+            </thead>
+            <tbody id="ambient-list"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="ambient-dialog">
+      <form id="ambient-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Configuração</p>
+            <h2 id="dialog-title">Novo ambiente</h2>
+          </div>
+          <button class="close-button" id="close-dialog-button" type="button" aria-label="Fechar">×</button>
+        </div>
+
+        <div class="form-grid">
+          <label class="field field-wide">
+            Nome
+            <input name="name" type="text" maxlength="50" required autocomplete="off" />
+          </label>
+          <label class="field">
+            CPU weight
+            <input name="cpu_weight" type="number" min="0" max="65535" required />
+          </label>
+          <label class="field">
+            CPU máximo
+            <input name="cpu_max" type="number" min="0" required />
+          </label>
+          <label class="field">
+            Memória máxima
+            <input name="memory_max" type="number" min="0" required />
+          </label>
+          <label class="field">
+            Swap máxima
+            <input name="memory_swap_max" type="number" min="0" required />
+          </label>
+          <label class="field">
+            I/O máximo
+            <input name="io_max" type="number" min="0" required />
+          </label>
+        </div>
+
+        <div class="dialog-actions">
+          <button class="button button-ghost" id="cancel-button" type="button">Cancelar</button>
+          <button class="button button-primary" id="save-button" type="submit">Salvar ambiente</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
