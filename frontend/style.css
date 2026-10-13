@@ -16,6 +16,7 @@
 body {
   margin: 0;
   min-width: 320px;
+  font-size: 1.08rem;
   background: radial-gradient(circle at top right, #243252 0, #101522 42rem);
 }
 
@@ -47,7 +48,7 @@ button {
 .eyebrow {
   margin: 0 0 10px;
   color: #7e9cff;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -67,7 +68,7 @@ h1 {
 
 h2 {
   margin-bottom: 8px;
-  font-size: 1.2rem;
+  font-size: 1.35rem;
 }
 
 .subtitle,
@@ -130,6 +131,135 @@ h2 {
   overflow-x: auto;
 }
 
+.ambient-list {
+  padding: 12px 18px 18px;
+}
+
+.ambient-dropdown {
+  border: 1px solid #2b3852;
+  border-radius: 10px;
+}
+
+.ambient-dropdown + .ambient-dropdown {
+  margin-top: 10px;
+}
+
+.ambient-dropdown summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  list-style: none;
+  padding: 16px 18px;
+  background: #1d2740;
+  font-weight: 700;
+}
+
+.ambient-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.ambient-dropdown summary::before {
+  content: "›";
+  color: #8ea5ff;
+  font-size: 1.3rem;
+  transition: transform 0.2s ease;
+}
+
+.ambient-dropdown[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.ambient-name {
+  display: block;
+  color: #fff;
+}
+
+.ambient-summary-info {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.ambient-resources {
+  color: #8f9db7;
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+.ambient-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 14px;
+}
+
+.ambient-actions .action-button + .action-button {
+  margin-left: 0;
+}
+
+.process-rows {
+  padding: 6px 18px 10px;
+}
+
+.process-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #263149;
+  padding: 13px 4px;
+  background: transparent;
+  color: #e8edf7;
+  text-align: left;
+}
+
+.process-row:last-child {
+  border-bottom: 0;
+}
+
+.process-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.process-status {
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: #28334c;
+  color: #b8c5df;
+  font-size: 0.86rem;
+  text-transform: capitalize;
+}
+
+.status-running {
+  background: #1d3b35;
+  color: #9ce1cb;
+}
+
+.status-error {
+  background: #482632;
+  color: #ffb6c0;
+}
+
+.process-add-row {
+  cursor: pointer;
+  color: #9eb1e9;
+  font-weight: 700;
+}
+
+.process-add-row:hover {
+  color: #c5d1ff;
+}
+
+.plus-symbol {
+  font-size: 1.25rem;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -144,7 +274,7 @@ td {
 
 th {
   color: #8491aa;
-  font-size: 0.74rem;
+  font-size: 0.86rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -170,7 +300,7 @@ tbody tr:hover {
   border: 0;
   background: transparent;
   color: #9eb1e9;
-  font-size: 0.87rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 
@@ -244,7 +374,7 @@ dialog form {
   flex-direction: column;
   gap: 8px;
   color: #b4c0d6;
-  font-size: 0.84rem;
+  font-size: 0.98rem;
   font-weight: 700;
 }
 
@@ -269,7 +399,7 @@ dialog form {
 
 .field-help {
   color: #8491aa;
-  font-size: 0.75rem;
+  font-size: 0.88rem;
   font-weight: 400;
 }
 
@@ -309,6 +439,30 @@ dialog form {
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .ambient-resources {
+    width: 100%;
+    line-height: 1.5;
+  }
+
+  .ambient-summary-info {
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .process-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .process-status {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .process-row .action-button {
+    grid-column: 1 / -1;
+    text-align: left;
   }
 
   .field-wide {

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ambientes | Cloud Ambient Manager</title>
+    <title>Cloud Ambient Manager</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
@@ -12,7 +12,6 @@
         <div>
           <p class="eyebrow">Cloud Ambient Manager</p>
           <h1>Ambientes</h1>
-          <p class="subtitle">Gerencie os limites de recursos dos seus ambientes.</p>
         </div>
         <button class="button button-primary" id="new-ambient-button" type="button">
           <span aria-hidden="true">+</span> Novo ambiente
@@ -24,8 +23,7 @@
       <section class="content-card">
         <div class="card-heading">
           <div>
-            <h2>Ambientes cadastrados</h2>
-            <p id="ambient-count">Carregando...</p>
+            <h2>Ambientes</h2>
           </div>
           <button class="button button-ghost" id="refresh-button" type="button">Atualizar</button>
         </div>
@@ -36,29 +34,13 @@
           <span>Crie o primeiro ambiente para começar.</span>
         </div>
 
-        <div class="table-wrapper" id="table-wrapper" hidden>
-          <table>
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>CPU weight</th>
-                <th>CPU máx.</th>
-                <th>Memória máx.</th>
-                <th>Swap máx.</th>
-                <th>I/O máx.</th>
-                <th><span class="sr-only">Ações</span></th>
-              </tr>
-            </thead>
-            <tbody id="ambient-list"></tbody>
-          </table>
-        </div>
+        <div class="ambient-list" id="ambient-list"></div>
       </section>
 
       <section class="content-card">
         <div class="card-heading">
           <div>
             <h2>Programas</h2>
-            <p id="program-count">Carregando...</p>
           </div>
           <button class="button button-primary" id="new-program-button" type="button">
             <span aria-hidden="true">+</span> Enviar programa
@@ -68,18 +50,11 @@
         <div id="program-loading" class="state">Carregando programas...</div>
         <div id="program-empty-state" class="state" hidden>
           <strong>Nenhum programa cadastrado</strong>
-          <span>Envie um arquivo Python ou shell para começar.</span>
+          <span>Envie um arquivo de programa para começar.</span>
         </div>
 
         <div class="table-wrapper" id="program-table-wrapper" hidden>
           <table>
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Arquivo</th>
-                <th><span class="sr-only">Ações</span></th>
-              </tr>
-            </thead>
             <tbody id="program-list"></tbody>
           </table>
         </div>
@@ -126,6 +101,34 @@
         <div class="dialog-actions">
           <button class="button button-ghost" id="cancel-button" type="button">Cancelar</button>
           <button class="button button-primary" id="save-button" type="submit">Salvar ambiente</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="process-dialog">
+      <form id="process-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Novo processo</p>
+            <h2>Adicionar processo</h2>
+          </div>
+          <button class="close-button" id="close-process-dialog-button" type="button" aria-label="Fechar">×</button>
+        </div>
+
+        <div class="form-grid process-form-grid">
+          <label class="field field-wide">
+            Ambiente
+            <select name="ambients_id" id="process-ambient" required></select>
+          </label>
+          <label class="field field-wide">
+            Programa
+            <select name="programs_id" id="process-program" required></select>
+          </label>
+        </div>
+
+        <div class="dialog-actions">
+          <button class="button button-ghost" id="cancel-process-button" type="button">Cancelar</button>
+          <button class="button button-primary" id="create-process-button" type="submit">Criar processo</button>
         </div>
       </form>
     </dialog>
