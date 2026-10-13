@@ -9,6 +9,8 @@ from functools import wraps
 from threading import RLock
 from uuid import uuid4
 
+from system_manager import validate_ambient_params
+
 mydb = MySQLdb.connect(
     host="localhost",
     user="ambient_user",
@@ -47,11 +49,14 @@ app = FastAPI()
 @database_locked
 def insert_ambient(name: str, cpu_weight: int, cpu_max: int, memory_max: int, memory_swap_max: int, io_max: int):
     # TODO: Validar parâmetros
+    clean_name = validate_ambient_params(name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max)
+    
+    cursor = database_cursor()
     # TODO: Ver conflito de ambientes
     # TODO: Criar o ambiente no sistema operacional
     cursor = database_cursor()
     insert_query = "INSERT INTO ambients (name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max) VALUES (%s, %s, %s, %s, %s, %s)"
-    cursor.execute(insert_query, (name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max))
+    cursor.execute(insert_query, (clean_name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max))
     mydb.commit()
 
 @app.get("/ambients")
