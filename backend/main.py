@@ -9,7 +9,7 @@ from functools import wraps
 from threading import RLock
 from uuid import uuid4
 
-from system_manager import validate_ambient_params
+from system_manager import (validate_ambient_params, create_os_ambient, update_os_ambient, delete_os_ambient)
 
 mydb = MySQLdb.connect(
     host="localhost",
@@ -48,16 +48,29 @@ app = FastAPI()
 @app.post("/ambients")
 @database_locked
 def insert_ambient(name: str, cpu_weight: int, cpu_max: int, memory_max: int, memory_swap_max: int, io_max: int):
-    # TODO: Validar parâmetros
+    cursor = database_cursor()
+
+    # Validar parâmetros
     clean_name = validate_ambient_params(name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max)
+
+    # Ver conflito com nome do ambiente
+    cursor.execute("SELECT id FROM ambients WHERE name = %s", (clean_name,))
+    if cursor.fetchone():
+        raise HTTPException(status_code=400, detail="Um ambiente com esse nome já existe.")
     
-    cursor = database_cursor()
-    # TODO: Ver conflito de ambientes
-    # TODO: Criar o ambiente no sistema operacional
-    cursor = database_cursor()
-    insert_query = "INSERT INTO ambients (name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max) VALUES (%s, %s, %s, %s, %s, %s)"
-    cursor.execute(insert_query, (clean_name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max))
-    mydb.commit()
+    # Criar o ambiente no sistema operacional
+    try: 
+        create_os_ambient(clean_name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max)
+
+        # Inserir no banco de dados
+        insert_query = "INSERT INTO ambients (name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max) VALUES (%s, %s, %s, %s, %s, %s)"
+        cursor.execute(insert_query, (clean_name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max))
+        mydb.commit()
+    except Exception:
+        # Caso o INSERT falhe mas o cgroup tenha sido criado
+        mydb.rollback()
+        delete_os_ambient(clean_name)
+        raise
 
 @app.get("/ambients")
 @database_locked
@@ -71,24 +84,58 @@ def select_ambients():
 @app.put("/ambients/{ambient_id}")
 @database_locked
 def update_ambient(ambient_id: int, name: str, cpu_weight: int, cpu_max: int, memory_max: int, memory_swap_max: int, io_max: int):
-    # TODO: Validar parâmetros
-    # TODO: Ver conflito de ambientes
-    # TODO: Mudar o ambiente no sistema operacional
     cursor = database_cursor()
+
+    # Validar parâmetros
+    clean_name = validate_ambient_params(name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max)
+
+    # Verificar se o ambiente existe
+    cursor.execute("SELECT name FROM ambients WHERE id = %s", (ambient_id,))
+    row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Ambiente não encontrado.")
+    
+    old_name = row[0]
+
+    # Verificar se o novo nome já existe em outro ambiente
+    cursor.execute("SELECT id FROM ambients WHERE name = %s AND id <> %s", (clean_name, ambient_id))
+    if cursor.fetchone():
+        raise HTTPException(status_code=400, detail="Um ambiente com esse nome já existe.")
+
+    # Mudar o ambiente no sistema operacional
+    update_os_ambient(old_name, clean_name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max)
+
+    # Atualizar no banco de dados
     update_query = "UPDATE ambients SET name=%s, cpu_weight=%s, cpu_max=%s, memory_max=%s, memory_swap_max=%s, io_max=%s WHERE id=%s"
-    cursor.execute(update_query, (name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max, ambient_id))
+    cursor.execute(update_query, (clean_name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max, ambient_id))
     mydb.commit()
+
+    # TODO: caso o banco falhe, precisa reverter as alterações no sistema operacional
 
 @app.delete("/ambients/{ambient_id}")
 @database_locked
 def delete_ambient(ambient_id: int):
-    # TODO: Validar parâmetros
-    # TODO: Ver se o ambiente existe
-    # TODO: Apagar o ambiente e os processos associados no sistema operacional
     cursor = database_cursor()
-    delete_query = "DELETE FROM ambients WHERE id=%s"
-    cursor.execute(delete_query, (ambient_id,))
-    mydb.commit()
+
+    # Ver se o ambiente existe
+    cursor.execute("SELECT name FROM ambients WHERE id = %s", (ambient_id,))
+    row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Ambiente não encontrado.")
+    ambient_name = row[0]
+
+    # Apagar o ambiente e os processos associados no sistema operacional
+    try:
+        delete_query = "DELETE FROM ambients WHERE id=%s"
+        cursor.execute(delete_query, (ambient_id,))
+
+        delete_os_ambient(ambient_name)
+        
+        mydb.commit()
+    except Exception:
+        # Caso o DELETE falhe mas o cgroup tenha sido apagado
+        mydb.rollback()
+        raise
 
 # CRUD do programa
 SCRIPTS_DIR = Path(
