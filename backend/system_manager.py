@@ -36,10 +36,10 @@ def validate_ambient_params(name: str, cpu_weight: int, cpu_max: int, memory_max
         )
 
     #Validação do memory_max 
-    if memory_max < 16:
+    if memory_max < 16 or memory_max > 4096:
         raise HTTPException(
             status_code=400,
-            detail="A memoria maxima deve ser de no mínimo 16 MB."
+            detail="A memoria maxima deve ser entre 16 MB e 4096 MB."
         )
 
     #Validação do memory_swap_max
