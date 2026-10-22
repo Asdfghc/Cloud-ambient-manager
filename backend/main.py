@@ -9,7 +9,7 @@ from functools import wraps
 from threading import RLock
 from uuid import uuid4
 
-from system_manager import (validate_ambient_params, create_os_ambient, update_os_ambient, delete_os_ambient)
+from system_manager import (validate_ambient_params, create_os_ambient, update_os_ambient, delete_os_ambient, start_os_process, check_os_process_status, stop_os_process, read_os_process_log)
 
 mydb = MySQLdb.connect(
     host="localhost",
@@ -68,7 +68,7 @@ def insert_ambient(name: str, cpu_weight: int, cpu_max: int, memory_max: int, me
         mydb.commit()
     except Exception:
         # Caso o INSERT falhe mas o cgroup tenha sido criado
-        mydb.rollback()
+        mydb. rollback()
         delete_os_ambient(clean_name)
         raise
 
@@ -197,21 +197,19 @@ def select_programs():
     results = cursor.fetchall()
     return results
 
-@app.put("/programs/{program_id}")
-@database_locked
-def update_program(name: str, program_id: int):
-    # TODO: Validar parâmetros
-    # TODO: Ver se o programa existe
-    cursor = database_cursor()
-    update_query = "UPDATE programs SET name=%s WHERE id=%s"
-    cursor.execute(update_query, (name, program_id))
-    mydb.commit()
+# @app.put("/programs/{program_id}")
+# @database_locked
+# def update_program(name: str, program_id: int): # (precisa de update? vamos poder editar o programa?)
+#     # TODO: Validar parâmetros 
+#     # TODO: Ver se o programa existe
+#     cursor = database_cursor()
+#     update_query = "UPDATE programs SET name=%s WHERE id=%s"
+#     cursor.execute(update_query, (name, program_id))
+#     mydb.commit()
 
 @app.delete("/programs/{program_id}")
 @database_locked
 def delete_program(program_id: int):
-    # TODO: Validar parâmetros
-    # TODO: Ver se o programa existe
     cursor = database_cursor()
     select_query = "SELECT path FROM programs WHERE id=%s"
     cursor.execute(select_query, (program_id,))
@@ -230,32 +228,96 @@ def delete_program(program_id: int):
 @app.post("/processes")
 @database_locked
 def insert_process(programs_id: int, ambients_id: int):
-    # TODO: Validar parâmetros
-    # TODO: Ver se o programa e o ambiente existem
-    # TODO: Criar o processo no sistema operacional
-    status = "running" # TODO: Estado inicial
     cursor = database_cursor()
-    insert_query = "INSERT INTO processes (programs_id, ambients_id, status) VALUES (%s, %s, %s)"
-    cursor.execute(insert_query, (programs_id, ambients_id, status))
-    mydb.commit()
+    
+    cursor.execute("SELECT path FROM programs WHERE id=%s", (programs_id,))
+    # Verifica se o programa existe
+    prog_row = cursor.fetchone()
+    if not prog_row:
+        raise HTTPException(status_code=404, detail="Programa não encontrado.")
+    program_path = prog_row[0]
+
+    cursor.execute("SELECT name FROM ambients WHERE id=%s", (ambients_id,))
+    # Verifica se o ambiente existe
+    amb_row = cursor.fetchone()
+    if not amb_row:
+        raise HTTPException(status_code=404, detail="Ambiente não encontrado.")
+    ambient_name = amb_row[0]
+
+    try:
+        # Coloca o processo "running" no banco de dados para gerar um ID
+        insert_query = "INSERT INTO processes (programs_id, ambients_id, status) VALUES (%s, %s, %s)"
+        cursor.execute(insert_query, (programs_id, ambients_id, "running"))
+        process_id = cursor.lastrowid
+
+        # Inicia a execução do processo
+        pid = start_os_process(ambient_name, program_path, process_id)
+
+        cursor.execute("UPDATE processes SET pid=%s WHERE id=%s", (pid, process_id))
+        mydb.commit()
+    except Exception:
+        mydb.rollback()
+        raise
+
 
 @app.get("/processes")
 @database_locked
 def select_processes():
     cursor = database_cursor()
-    select_query = "SELECT * FROM processes"
-    cursor.execute(select_query)
-    results = cursor.fetchall()
+
+    # Busca todos os processos no banco de dados
+    cursor.execute("SELECT id, programs_id, ambients_id, status, pid FROM processes")
+    rows = cursor.fetchall()
+
+    results = []
+    for process_id, programs_id, ambients_id, status, pid in rows:
+        # Se o processo estiver como "running", consulta o status real no sistema operacional
+        if status == "running":
+            current_status = check_os_process_status(process_id, pid)
+
+            # Se o status mudou, atualiza no banco de dados
+            if current_status != status:
+                status = current_status
+                cursor.execute("UPDATE processes SET status=%s WHERE id=%s", (status, process_id))
+                mydb.commit()
+
+        results.append((process_id, programs_id, ambients_id, status, pid))
+
     return results
+
+@app.get("/processes/{process_id}/log")
+@database_locked
+def get_process_log(process_id: int):
+    cursor = database_cursor()
+
+    # Verifica se o processo existe
+    cursor.execute("SELECT ambients_id FROM processes WHERE id=%s", (process_id,))
+    proc_row = cursor.fetchone()
+    if not proc_row:
+        raise HTTPException(status_code=404, detail="Processo não encontrado.")
+
+    # Obtem o nome do ambiente associado ao processo
+    cursor.execute("SELECT name FROM ambients WHERE id=%s", (proc_row[0],))
+    ambient_name = cursor.fetchone()[0]
+
+    return {"log": read_os_process_log(ambient_name, process_id)}
 
 @app.delete("/processes/{process_id}")
 @database_locked
 def delete_process(process_id: int):
-    # TODO: Validar parâmetros
-    # TODO: Ver se o processo existe
     cursor = database_cursor()
-    delete_query = "DELETE FROM processes WHERE id=%s"
-    cursor.execute(delete_query, (process_id,))
+    
+    # Verifica se o processo existe e obtém o PID
+    cursor.execute("SELECT pid FROM processes WHERE id=%s", (process_id,))
+    row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Processo não encontrado.")
+    pid = row[0]
+
+    # Mata a execução do processo e apaga do banco
+    stop_os_process(process_id, pid)
+
+    cursor.execute("DELETE FROM processes WHERE id=%s", (process_id,))
     mydb.commit()
 
 app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")

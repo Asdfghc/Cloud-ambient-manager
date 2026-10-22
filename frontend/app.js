@@ -176,6 +176,8 @@ function normalizeProcess(row) {
   };
 }
 
+  // TODO: implementar a visualização dos logs do processo
+
 function createProcessRow(process) {
   const row = document.createElement("div");
   row.className = "process-row";
@@ -451,7 +453,7 @@ async function removeProgram(program) {
 }
 
 document.querySelector("#new-ambient-button").addEventListener("click", openNewDialog);
-document.querySelector("#refresh-button").addEventListener("click", loadAmbients);
+document.querySelector("#refresh-button").addEventListener("click", loadInitialData);
 document.querySelector("#cancel-button").addEventListener("click", closeDialog);
 document.querySelector("#close-dialog-button").addEventListener("click", closeDialog);
 form.addEventListener("submit", saveAmbient);
@@ -478,4 +480,5 @@ async function loadInitialData() {
   await loadProcesses();
 }
 
+setInterval(loadProcesses, 2000);
 loadInitialData();

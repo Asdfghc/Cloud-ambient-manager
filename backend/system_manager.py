@@ -1,12 +1,15 @@
 # system_manager.py
 import os
 import re
+import subprocess
+import signal
 
 from pathlib import Path
 from fastapi import HTTPException
 
 
 CGROUP_BASE_PATH = "/sys/fs/cgroup/ambient_project"
+ACTIVE_PROCESSES = {} # Dicionário para armazenar os processos ativos
 
 def validate_ambient_params(name: str, cpu_weight: int, cpu_max: int, memory_max: int, memory_swap_max: int, io_max: int):
 
@@ -127,4 +130,100 @@ def delete_os_ambient(name: str):
             f.write("1")
 
     os.rmdir(ambient_path)
+
+
+def start_os_process(ambient_name: str, program_path: str, process_id: int):
+
+    ambient_path = os.path.join(CGROUP_BASE_PATH, ambient_name)
+    if not os.path.exists(ambient_path):
+        raise RuntimeError("Ambiente não encontrado.")
+    if not Path(program_path).is_file():
+        raise RuntimeError("Programa não encontrado.")
+
+    # Define o interpretador do Python para o script
+    if Path(program_path).suffix.lower() == ".py":
+        program_cmd = ["python3", "-u", program_path]
+    else:
+        program_cmd = ["bash", program_path]
+    
+
+    # Cria o processo isolado via namespace
+    # --pid: cria um novo namespace de PID
+    # --fork: cria um novo processo filho
+    # --kill-child: garante que o processo filho seja morto quando o processo pai terminar
+    # --uts: isola o hostname do ambiente
+    # --ipc: isola a comunicação entre processos
+    # --mount-proc: monta o /proc do novo namespace
+    command = ["unshare", "--pid", "--fork", "--kill-child", "--uts", "--ipc", "--mount-proc", *program_cmd]
+
+    # Cria a pasta de logs caso não exista, e define o arquivo de saída do processo
+    log_dir = Path(__file__).parent / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_path = log_dir / f"{ambient_name}_{process_id}.log"
+
+    # Coloca o PID dentro do cgroup do ambiente
+    def apply_cgroup():
+        with open(f"{ambient_path}/cgroup.procs", "w") as f:
+            f.write(str(os.getpid()))
+            
+    # Inicia o processo e redireciona a saída para o arquivo de log
+    with open(log_path, "wb") as log_file:
+        proc = subprocess.Popen(
+            command,
+            stdin = subprocess.DEVNULL,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            preexec_fn=apply_cgroup,
+            start_new_session=True,
+        )
+
+    # Salva o processo em um dicionário para gerenciar os status depois
+    ACTIVE_PROCESSES[process_id] = proc
+    return proc.pid
+
+def check_os_process_status(process_id: int, pid: int):
+    if not pid:
+        return "error"
+
+    # Procura no dicionário de processos ativos o processo do ID fornecido
+    proc = ACTIVE_PROCESSES.get(process_id)
+    if proc is not None:
+        # Verifica se o processo ainda está rodando
+        if proc.poll() is None:
+            return "running"
         
+        ACTIVE_PROCESSES.pop(process_id, None) 
+
+        if proc.returncode == 0:
+            return "stopped"
+        return "error"
+
+    # Se a API reiniciar, o dicionário de processos vai estar vazio. Procura o processo no sistema operacional
+    if os.path.exists(f"/proc/{pid}"):
+        return "running"
+    return "stopped"
+
+def stop_os_process(process_id: int, pid: int):
+    if not pid:
+        return
+
+    # Manda um sinal de kill para o processo, se ele ainda estiver rodando
+    try:
+        os.killpg(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+    # Remove o processo do dicionário de processos ativos
+    proc = ACTIVE_PROCESSES.pop(process_id, None)
+
+
+
+def read_os_process_log(ambient_name: str, process_id: int):
+    log_path = Path(__file__).parent / "logs" / f"{ambient_name}_{process_id}.log"
+
+    # Verifica se o arquivo de log existe
+    if not log_path.exists():
+        return "Log não encontrado."
+
+    # Retorna o conteúdo do log
+    return log_path.read_text(encoding="utf-8", errors="replace")
