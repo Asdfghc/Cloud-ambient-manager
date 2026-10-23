@@ -18,6 +18,8 @@ const processDialog = document.querySelector("#process-dialog");
 const processAmbient = document.querySelector("#process-ambient");
 const processProgram = document.querySelector("#process-program");
 const createProcessButton = document.querySelector("#create-process-button");
+const logDialog = document.querySelector("#log-dialog");
+const logContent = document.querySelector("#log-content");
 const AMBIENT_DROPDOWN_STATE_KEY = "cloud-ambient-manager:ambient-dropdown-state";
 
 let editingId = null;
@@ -118,7 +120,7 @@ function renderAmbients(rows) {
     name.textContent = ambient.name;
     const resources = document.createElement("span");
     resources.className = "ambient-resources";
-    resources.textContent = `CPU weight ${ambient.cpuWeight} · CPU máx. ${ambient.cpuMax} · Memória máx. ${ambient.memoryMax} · Swap máx. ${ambient.memorySwapMax} · I/O máx. ${ambient.ioMax}`;
+    resources.textContent = `CPU weight ${ambient.cpuWeight} · CPU máx. ${ambient.cpuMax}% · Memória máx. ${ambient.memoryMax} MB · Swap máx. ${ambient.memorySwapMax} MB · I/O máx. ${ambient.ioMax} MB/s`;
     summaryInfo.append(name, resources);
 
     const actions = document.createElement("span");
@@ -176,8 +178,6 @@ function normalizeProcess(row) {
   };
 }
 
-  // TODO: implementar a visualização dos logs do processo
-
 function createProcessRow(process) {
   const row = document.createElement("div");
   row.className = "process-row";
@@ -188,13 +188,38 @@ function createProcessRow(process) {
   const status = document.createElement("span");
   status.textContent = process.status;
   status.className = `process-status status-${process.status}`;
+  const processActions = document.createElement("span");
+  processActions.className = "process-actions";
+  const logButton = document.createElement("button");
+  logButton.className = "action-button";
+  logButton.type = "button";
+  logButton.textContent = "Logs";
+  logButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openProcessLog(process);
+  });
   const deleteButton = document.createElement("button");
   deleteButton.className = "action-button action-danger";
   deleteButton.type = "button";
   deleteButton.textContent = "Excluir";
   deleteButton.addEventListener("click", () => removeProcess(process));
-  row.append(name, status, deleteButton);
+  processActions.append(status, logButton, deleteButton);
+  row.append(name, processActions);
   return row;
+}
+
+async function openProcessLog(process) {
+  logContent.textContent = "Carregando logs...";
+  logDialog.showModal();
+
+  try {
+    const response = await fetch(`/processes/${process.id}/log`);
+    if (!response.ok) throw new Error("Não foi possível carregar os logs.");
+    const details = await response.json();
+    logContent.textContent = details.log || "Nenhum log disponível.";
+  } catch (error) {
+    logContent.textContent = error.message;
+  }
 }
 
 async function loadAmbients() {
@@ -268,18 +293,59 @@ function formParameters() {
   return new URLSearchParams(data);
 }
 
+function validateAmbientForm() {
+  const name = form.elements.name.value.trim();
+  const values = {
+    cpuWeight: Number(form.elements.cpu_weight.value),
+    cpuMax: Number(form.elements.cpu_max.value),
+    memoryMax: Number(form.elements.memory_max.value),
+    memorySwapMax: Number(form.elements.memory_swap_max.value),
+    ioMax: Number(form.elements.io_max.value),
+  };
+
+  if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) {
+    throw new Error(
+      "O nome do ambiente deve conter apenas letras, números, hífen e underline (sem espaços ou caracteres especiais).",
+    );
+  }
+  if (!Number.isInteger(values.cpuWeight) || values.cpuWeight < 1 || values.cpuWeight > 10000) {
+    throw new Error("O prioridade de CPU deve estar entre 1 e 10000.");
+  }
+  if (!Number.isInteger(values.cpuMax) || values.cpuMax < 1 || values.cpuMax > 100) {
+    throw new Error("O maximo de uso de CPU deve estar entre 1 e 100%.");
+  }
+  if (!Number.isInteger(values.memoryMax) || values.memoryMax < 16 || values.memoryMax > 4096) {
+    throw new Error("A memoria maxima deve ser entre 16 MB e 4096 MB.");
+  }
+  if (!Number.isInteger(values.memorySwapMax) || values.memorySwapMax < 0) {
+    throw new Error("A memoria swap maxima não pode ser negativa.");
+  }
+  if (!Number.isInteger(values.ioMax) || values.ioMax < 1) {
+    throw new Error("O limite de I/O deve ser de no mínimo 1 MB/s.");
+  }
+}
+
 async function saveAmbient(event) {
   event.preventDefault();
   saveButton.disabled = true;
 
   try {
+    validateAmbientForm();
     const parameters = formParameters();
     const path = editingId === null ? "/ambients" : `/ambients/${editingId}`;
     const endpoint = `${path}?${parameters.toString()}`;
     const response = await fetch(endpoint, {
       method: editingId === null ? "POST" : "PUT",
     });
-    if (!response.ok) throw new Error("Não foi possível salvar o ambiente.");
+    if (!response.ok) {
+      let detail;
+      try {
+        detail = (await response.json()).detail;
+      } catch {
+        detail = undefined;
+      }
+      throw new Error(detail || "Não foi possível salvar o ambiente.");
+    }
     const successMessage = editingId === null ? "Ambiente criado." : "Ambiente atualizado.";
     closeDialog();
     await loadAmbients();
@@ -373,7 +439,15 @@ async function createProcess(event) {
   try {
     const params = new URLSearchParams(new FormData(processForm));
     const response = await fetch(`/processes?${params.toString()}`, { method: "POST" });
-    if (!response.ok) throw new Error("Não foi possível criar o processo.");
+    if (!response.ok) {
+      let detail;
+      try {
+        detail = (await response.json()).detail;
+      } catch {
+        detail = undefined;
+      }
+      throw new Error(errorMessage(detail, "Não foi possível criar o processo."));
+    }
     closeProcessDialog();
     await loadProcesses();
     showFeedback("Processo criado com sucesso.", "success");
@@ -453,7 +527,6 @@ async function removeProgram(program) {
 }
 
 document.querySelector("#new-ambient-button").addEventListener("click", openNewDialog);
-document.querySelector("#refresh-button").addEventListener("click", loadInitialData);
 document.querySelector("#cancel-button").addEventListener("click", closeDialog);
 document.querySelector("#close-dialog-button").addEventListener("click", closeDialog);
 form.addEventListener("submit", saveAmbient);
@@ -472,6 +545,10 @@ document.querySelector("#close-process-dialog-button").addEventListener("click",
 processForm.addEventListener("submit", createProcess);
 processDialog.addEventListener("click", (event) => {
   if (event.target === processDialog) closeProcessDialog();
+});
+document.querySelector("#close-log-dialog-button").addEventListener("click", () => logDialog.close());
+logDialog.addEventListener("click", (event) => {
+  if (event.target === logDialog) logDialog.close();
 });
 
 async function loadInitialData() {

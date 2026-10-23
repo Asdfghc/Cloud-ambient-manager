@@ -9,7 +9,8 @@ from functools import wraps
 from threading import RLock
 from uuid import uuid4
 
-from system_manager import (validate_ambient_params, create_os_ambient, update_os_ambient, delete_os_ambient, start_os_process, check_os_process_status, stop_os_process, read_os_process_log)
+from system_manager import (create_os_ambient, update_os_ambient, delete_os_ambient, start_os_process, check_os_process_status, stop_os_process, read_os_process_log)
+from validation import validate_ambient_params
 
 mydb = MySQLdb.connect(
     host="localhost",
@@ -285,6 +286,39 @@ def select_processes():
 
     return results
 
+@app.delete("/processes/{process_id}")
+@database_locked
+def delete_process(process_id: int):
+    cursor = database_cursor()
+    
+    # Verifica se o processo existe e obtém o PID
+    cursor.execute("SELECT pid FROM processes WHERE id=%s", (process_id,))
+    row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Processo não encontrado.")
+    pid = row[0]
+
+    # Mata a execução do processo
+    stop_os_process(process_id, pid)
+
+    # Apaga o arquivo de log do processo
+    cursor.execute("SELECT ambients_id FROM processes WHERE id=%s", (process_id,))
+    amb_row = cursor.fetchone()
+    if amb_row:
+        ambients_id = amb_row[0]
+        cursor.execute("SELECT name FROM ambients WHERE id=%s", (ambients_id,))
+        ambient_row = cursor.fetchone()
+        if ambient_row:
+            ambient_name = ambient_row[0]
+            log_path = Path(__file__).parent / "logs" / f"{ambient_name}_{process_id}.log"
+            log_path.unlink(missing_ok=True)
+    
+    # Apaga do banco
+    cursor.execute("DELETE FROM processes WHERE id=%s", (process_id,))
+    mydb.commit()
+    
+
+# Leitura dos logs
 @app.get("/processes/{process_id}/log")
 @database_locked
 def get_process_log(process_id: int):
@@ -301,23 +335,5 @@ def get_process_log(process_id: int):
     ambient_name = cursor.fetchone()[0]
 
     return {"log": read_os_process_log(ambient_name, process_id)}
-
-@app.delete("/processes/{process_id}")
-@database_locked
-def delete_process(process_id: int):
-    cursor = database_cursor()
-    
-    # Verifica se o processo existe e obtém o PID
-    cursor.execute("SELECT pid FROM processes WHERE id=%s", (process_id,))
-    row = cursor.fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Processo não encontrado.")
-    pid = row[0]
-
-    # Mata a execução do processo e apaga do banco
-    stop_os_process(process_id, pid)
-
-    cursor.execute("DELETE FROM processes WHERE id=%s", (process_id,))
-    mydb.commit()
 
 app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")
