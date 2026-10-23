@@ -94,8 +94,10 @@ def start_os_process(ambient_name: str, program_path: str, process_id: int):
     # Define o interpretador do Python para o script
     if Path(program_path).suffix.lower() == ".py":
         program_cmd = ["python3", "-u", program_path]
-    else:
+    elif Path(program_path).suffix.lower() == ".sh":
         program_cmd = ["bash", program_path]
+    else:
+        program_cmd = [program_path]
     
 
     # Cria o processo isolado via namespace

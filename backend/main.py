@@ -147,7 +147,8 @@ SCRIPTS_DIR = Path(
 )
 SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
 
-ALLOWED_EXTENSIONS = {".py", ".sh"}
+ALLOWED_EXTENSIONS = {".py", ".sh", ".bin"}
+INTERPRETED_EXTENSIONS = {".py", ".sh"}
 @app.post("/programs")
 @database_locked
 async def insert_program(name: str = Form(...), file: UploadFile = File(...)):
@@ -157,11 +158,10 @@ async def insert_program(name: str = Form(...), file: UploadFile = File(...)):
 
     # Validar a extensão recebida
     extension = Path(file.filename or "").suffix.lower()
-
     if extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail="Tipo de arquivo não permitido"
+            detail="Tipo de arquivo não permitido. Envie um arquivo .py, .sh ou .bin.",
         )
 
     # Nome do arquivo vira um identificador
@@ -173,6 +173,8 @@ async def insert_program(name: str = Form(...), file: UploadFile = File(...)):
         with destination.open("xb") as output:
             while chunk := await file.read(1024 * 1024):
                 output.write(chunk)
+        if extension not in INTERPRETED_EXTENSIONS:
+            destination.chmod(0o755)
     except Exception:
         destination.unlink(missing_ok=True)
         raise

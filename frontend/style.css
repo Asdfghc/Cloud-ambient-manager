@@ -46,7 +46,7 @@ button {
 .shell {
   width: min(1240px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 56px 0 72px;
+  padding: 26px 0 22px;
 }
 
 .page-header,
@@ -152,6 +152,7 @@ h2 {
 .ambient-dropdown {
   border: 1px solid #2b3852;
   border-radius: 10px;
+  overflow: hidden;
 }
 
 .ambient-dropdown + .ambient-dropdown {
