@@ -25,5 +25,5 @@ CREATE TABLE IF NOT EXISTS processes (
     ambients_id INT NOT NULL,
     status ENUM('running', 'stopped', 'error') NOT NULL,
     pid INT,
-    FOREIGN KEY (programs_id) REFERENCES programs(id) ON DELETE CASCADE,
+    FOREIGN KEY (programs_id) REFERENCES programs(id),
     FOREIGN KEY (ambients_id) REFERENCES ambients(id) ON DELETE CASCADE);

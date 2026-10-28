@@ -6,6 +6,8 @@ const emptyState = document.querySelector("#empty-state");
 const feedback = document.querySelector("#feedback");
 const dialogTitle = document.querySelector("#dialog-title");
 const saveButton = document.querySelector("#save-button");
+const ambientNameField = document.querySelector("#ambient-name-field");
+const ambientNameInput = form.elements.name;
 const programForm = document.querySelector("#program-form");
 const programDialog = document.querySelector("#program-dialog");
 const programList = document.querySelector("#program-list");
@@ -242,23 +244,29 @@ function openNewDialog() {
   editingId = null;
   dialogTitle.textContent = "Novo ambiente";
   saveButton.textContent = "Salvar ambiente";
+  ambientNameField.hidden = false;
+  ambientNameInput.disabled = false;
+  ambientNameInput.required = true;
   form.reset();
   dialog.showModal();
-  form.elements.name.focus();
+  ambientNameInput.focus();
 }
 
 function openEditDialog(ambient) {
   editingId = ambient.id;
   dialogTitle.textContent = "Editar ambiente";
   saveButton.textContent = "Salvar alterações";
-  form.elements.name.value = ambient.name;
+  ambientNameField.hidden = true;
+  ambientNameInput.disabled = true;
+  ambientNameInput.required = false;
+  ambientNameInput.value = ambient.name;
   form.elements.cpu_weight.value = ambient.cpuWeight;
   form.elements.cpu_max.value = ambient.cpuMax;
   form.elements.memory_max.value = ambient.memoryMax;
   form.elements.memory_swap_max.value = ambient.memorySwapMax;
   form.elements.io_max.value = ambient.ioMax;
   dialog.showModal();
-  form.elements.name.focus();
+  form.elements.cpu_weight.focus();
 }
 
 function openProcessDialog(ambientId) {
@@ -286,6 +294,9 @@ function closeProcessDialog() {
 function closeDialog() {
   dialog.close();
   form.reset();
+  ambientNameField.hidden = false;
+  ambientNameInput.disabled = false;
+  ambientNameInput.required = true;
 }
 
 function formParameters() {
@@ -303,10 +314,12 @@ function validateAmbientForm() {
     ioMax: Number(form.elements.io_max.value),
   };
 
-  if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) {
-    throw new Error(
-      "O nome do ambiente deve conter apenas letras, números, hífen e underline (sem espaços ou caracteres especiais).",
-    );
+  if (editingId === null) {
+    if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) {
+      throw new Error(
+        "O nome do ambiente deve conter apenas letras, números, hífen e underline (sem espaços ou caracteres especiais).",
+      );
+    }
   }
   if (!Number.isInteger(values.cpuWeight) || values.cpuWeight < 1 || values.cpuWeight > 10000) {
     throw new Error("O prioridade de CPU deve estar entre 1 e 10000.");

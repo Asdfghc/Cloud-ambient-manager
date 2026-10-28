@@ -54,21 +54,14 @@ def create_os_ambient(name: str, cpu_weight: int, cpu_max: int, memory_max: int,
     write_cgroup_limits(ambient_path, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max)
 
 
-def update_os_ambient(old_name: str, new_name: str, cpu_weight: int, cpu_max: int, memory_max: int, memory_swap_max: int, io_max: int):
+def update_os_ambient(name: str, cpu_weight: int, cpu_max: int, memory_max: int, memory_swap_max: int, io_max: int):
     init_cgroup_base()
-    old_ambient_path = os.path.join(CGROUP_BASE_PATH, old_name)
-    new_ambient_path = os.path.join(CGROUP_BASE_PATH, new_name)
+    ambient_path = os.path.join(CGROUP_BASE_PATH, name)
 
-    if not os.path.exists(old_ambient_path):
+    if not os.path.exists(ambient_path):
         raise RuntimeError("Ambiente não encontrado.")
 
-    if old_name != new_name:
-        if os.path.exists(new_ambient_path):
-            raise RuntimeError("Um ambiente com o mesmo nome já existe .")
-        
-        os.rename(old_ambient_path, new_ambient_path)
-
-    write_cgroup_limits(new_ambient_path, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max)
+    write_cgroup_limits(ambient_path, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max)
 
 
 def delete_os_ambient(name: str):

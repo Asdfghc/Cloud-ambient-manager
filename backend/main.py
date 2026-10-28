@@ -84,11 +84,11 @@ def select_ambients():
 
 @app.put("/ambients/{ambient_id}")
 @database_locked
-def update_ambient(ambient_id: int, name: str, cpu_weight: int, cpu_max: int, memory_max: int, memory_swap_max: int, io_max: int):
+def update_ambient(ambient_id: int, cpu_weight: int, cpu_max: int, memory_max: int, memory_swap_max: int, io_max: int):
     cursor = database_cursor()
 
     # Validar parâmetros
-    clean_name = validate_ambient_params(name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max)
+    validate_ambient_params("ambient", cpu_weight, cpu_max, memory_max, memory_swap_max, io_max)
 
     # Verificar se o ambiente existe
     cursor.execute("SELECT name FROM ambients WHERE id = %s", (ambient_id,))
@@ -96,22 +96,16 @@ def update_ambient(ambient_id: int, name: str, cpu_weight: int, cpu_max: int, me
     if not row:
         raise HTTPException(status_code=404, detail="Ambiente não encontrado.")
     
-    old_name = row[0]
-
-    # Verificar se o novo nome já existe em outro ambiente
-    cursor.execute("SELECT id FROM ambients WHERE name = %s AND id <> %s", (clean_name, ambient_id))
-    if cursor.fetchone():
-        raise HTTPException(status_code=400, detail="Um ambiente com esse nome já existe.")
+    name = row[0]
 
     # Mudar o ambiente no sistema operacional
-    update_os_ambient(old_name, clean_name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max)
+    update_os_ambient(name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max)
 
     # Atualizar no banco de dados
-    update_query = "UPDATE ambients SET name=%s, cpu_weight=%s, cpu_max=%s, memory_max=%s, memory_swap_max=%s, io_max=%s WHERE id=%s"
-    cursor.execute(update_query, (clean_name, cpu_weight, cpu_max, memory_max, memory_swap_max, io_max, ambient_id))
+    update_query = "UPDATE ambients SET cpu_weight=%s, cpu_max=%s, memory_max=%s, memory_swap_max=%s, io_max=%s WHERE id=%s"
+    cursor.execute(update_query, (cpu_weight, cpu_max, memory_max, memory_swap_max, io_max, ambient_id))
     mydb.commit()
 
-    # TODO: caso o banco falhe, precisa reverter as alterações no sistema operacional
 
 @app.delete("/ambients/{ambient_id}")
 @database_locked

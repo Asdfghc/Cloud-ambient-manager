@@ -1,6 +1,13 @@
-sudo apt update
-sudo apt install python3 python3-fastapi python3-multipart python3-mysqldb uvicorn mysql-server python3-multipart
-(rodar o init.sql)
+# Projeto de Computação em Nuvem: Cloud Ambient Manager
+## Feito por:
+Felipe Pires Leonardi - 23013506  
+Lucas Camargo Teixeira - 23011315  
+Lucas Henrique Meng - 23003677  
 
-cd backend
-uvicorn main:app --reload
+## Objetivos da aplicação
+Um site de gerenciamento de ambientes com customização de especificações (como memória, prioridade), para a execução de programas, utilizando Cgroup v2 e namespace.
+
+## Linguagens e frameworks de implementação
+- Frontend: HTML, CSS, JavaScript, servidos via NGINX.
+- Backend: FastAPI.
+- Banco de Dados: MySQL.
