@@ -163,6 +163,27 @@ def stop_os_process(process_id: int, pid: int):
     proc = ACTIVE_PROCESSES.pop(process_id, None)
 
 
+def pause_os_process(process_id: int, pid: int):
+    if not pid:
+        return False
+
+    try:
+        os.killpg(pid, signal.SIGSTOP)
+        return True
+    except ProcessLookupError:
+        return False
+
+
+def resume_os_process(process_id: int, pid: int):
+    if not pid:
+        return False
+
+    try:
+        os.killpg(pid, signal.SIGCONT)
+        return True
+    except ProcessLookupError:
+        return False
+
 
 def read_os_process_log(ambient_name: str, process_id: int):
     log_path = Path(__file__).parent / "logs" / f"{ambient_name}_{process_id}.log"

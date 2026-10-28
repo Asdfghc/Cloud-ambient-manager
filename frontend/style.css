@@ -257,9 +257,21 @@ h2 {
   gap: 14px;
 }
 
+.process-toggle-button {
+  min-width: 1.5rem;
+  padding: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
 .status-running {
   background: #1d3b35;
   color: #9ce1cb;
+}
+
+.status-paused {
+  background: #433823;
+  color: #f8d98d;
 }
 
 .status-error {

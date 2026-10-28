@@ -192,6 +192,30 @@ function createProcessRow(process) {
   status.className = `process-status status-${process.status}`;
   const processActions = document.createElement("span");
   processActions.className = "process-actions";
+  if (["running", "paused"].includes(process.status)) {
+    const togglePauseButton = document.createElement("button");
+    togglePauseButton.className = "action-button process-toggle-button";
+    togglePauseButton.type = "button";
+    togglePauseButton.textContent = process.status === "paused" ? "▶" : "⏸";
+    togglePauseButton.setAttribute("aria-label", togglePauseButton.title);
+    togglePauseButton.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      togglePauseButton.disabled = true;
+      try {
+        const response = await fetch(`/processes/${process.id}/toggle-pause`, { method: "POST" });
+        if (!response.ok) {
+          const detail = await response.json().catch(() => null);
+          throw new Error(errorMessage(detail, "Não foi possível alterar o estado do processo."));
+        }
+        await loadProcesses();
+        showFeedback(`Processo ${process.status === "paused" ? "retomado" : "pausado"}.`, "success");
+      } catch (error) {
+        showFeedback(error.message);
+        togglePauseButton.disabled = false;
+      }
+    });
+    processActions.append(togglePauseButton);
+  }
   const logButton = document.createElement("button");
   logButton.className = "action-button";
   logButton.type = "button";
@@ -205,7 +229,8 @@ function createProcessRow(process) {
   deleteButton.type = "button";
   deleteButton.textContent = "Excluir";
   deleteButton.addEventListener("click", () => removeProcess(process));
-  processActions.append(status, logButton, deleteButton);
+  processActions.prepend(status);
+  processActions.append(logButton, deleteButton);
   row.append(name, processActions);
   return row;
 }

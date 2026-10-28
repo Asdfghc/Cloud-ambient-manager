@@ -9,7 +9,17 @@ from functools import wraps
 from threading import RLock
 from uuid import uuid4
 
-from system_manager import (create_os_ambient, update_os_ambient, delete_os_ambient, start_os_process, check_os_process_status, stop_os_process, read_os_process_log)
+from system_manager import (
+    create_os_ambient,
+    update_os_ambient,
+    delete_os_ambient,
+    start_os_process,
+    check_os_process_status,
+    stop_os_process,
+    pause_os_process,
+    resume_os_process,
+    read_os_process_log,
+)
 from validation import validate_ambient_params
 
 mydb = MySQLdb.connect(
@@ -197,8 +207,6 @@ def select_programs():
 # @app.put("/programs/{program_id}")
 # @database_locked
 # def update_program(name: str, program_id: int): # (precisa de update? vamos poder editar o programa?)
-#     # TODO: Validar parâmetros 
-#     # TODO: Ver se o programa existe
 #     cursor = database_cursor()
 #     update_query = "UPDATE programs SET name=%s WHERE id=%s"
 #     cursor.execute(update_query, (name, program_id))
@@ -266,21 +274,51 @@ def select_processes():
     cursor.execute("SELECT id, programs_id, ambients_id, status, pid FROM processes")
     rows = cursor.fetchall()
 
+    # Atualiza o status dos processos no banco de dados com base no status real do processo no sistema operacional
     results = []
     for process_id, programs_id, ambients_id, status, pid in rows:
-        # Se o processo estiver como "running", consulta o status real no sistema operacional
         if status == "running":
             current_status = check_os_process_status(process_id, pid)
-
-            # Se o status mudou, atualiza no banco de dados
             if current_status != status:
                 status = current_status
+                cursor.execute("UPDATE processes SET status=%s WHERE id=%s", (status, process_id))
+                mydb.commit()
+        elif status == "paused":
+            if not os.path.exists(f"/proc/{pid}"):
+                status = "stopped"
                 cursor.execute("UPDATE processes SET status=%s WHERE id=%s", (status, process_id))
                 mydb.commit()
 
         results.append((process_id, programs_id, ambients_id, status, pid))
 
     return results
+
+
+@app.post("/processes/{process_id}/toggle-pause")
+@database_locked
+def toggle_process_pause(process_id: int):
+    cursor = database_cursor()
+    cursor.execute("SELECT pid, status FROM processes WHERE id=%s", (process_id,))
+    row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Processo não encontrado.")
+
+    pid, status = row
+    if status == "running":
+        if not pid or not pause_os_process(process_id, pid):
+            raise HTTPException(status_code=400, detail="Não foi possível pausar o processo.")
+        new_status = "paused"
+    elif status == "paused":
+        if not pid or not resume_os_process(process_id, pid):
+            raise HTTPException(status_code=400, detail="Não foi possível retomar o processo.")
+        new_status = "running"
+    else:
+        raise HTTPException(status_code=400, detail="Este processo não pode ser pausado ou retomado no momento.")
+
+    cursor.execute("UPDATE processes SET status=%s WHERE id=%s", (new_status, process_id))
+    mydb.commit()
+    return {"status": new_status}
+
 
 @app.delete("/processes/{process_id}")
 @database_locked
